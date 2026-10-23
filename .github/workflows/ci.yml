@@ -38,10 +38,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
         with: { deno-version: "${{ matrix.deno }}", cache: true }
-      # One `deno test` run covers shared, worker, and back. The worker's render
-      # test loads a native addon, so it needs --allow-ffi/--allow-read/--allow-sys;
+      # One run covers the three code packages (shared, worker, back). We scope
+      # it to those dirs on purpose: the contract test under infra/ reads a file
+      # that only the nightly job checks out, so it must not be swept up here.
+      # The worker's render test loads a native addon (needs --allow-ffi/-read/-sys);
       # the back test needs --allow-net/--allow-env for Postgres.
-      - run: deno install && deno test --allow-net --allow-env --allow-read --allow-ffi --allow-sys
+      - run: deno install && deno test --allow-net --allow-env --allow-read --allow-ffi --allow-sys back/ worker/ shared/
 
   web:
     needs: changes

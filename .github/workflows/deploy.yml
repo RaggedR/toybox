@@ -5,8 +5,11 @@ on:
       environment: { required: true, type: string }
 
 permissions:
-  id-token: write          # would let a job request a short-lived OIDC token (see note below)
   contents: read
+  # id-token: write        # re-enable for a cloud target that federates via OIDC
+  #                          (see the commented OIDC step below). Unused for the
+  #                          SSH deploy, and requesting it unused makes the caller
+  #                          grant it too, so we leave it off here.
 
 jobs:
   deploy:
