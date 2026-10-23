@@ -80,6 +80,15 @@ Deno.test({
       assertEquals(res.status, 404);
     });
 
+    await t.step("POST /api/cards with a missing message is rejected with 400", async () => {
+      const res = await app.request("/api/cards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ design: "sunset" }),
+      });
+      assertEquals(res.status, 400);
+    });
+
     await t.step("close the pool", async () => {
       await pool.end();
     });
