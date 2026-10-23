@@ -1,0 +1,68 @@
+# The production stack for one box: a Postgres, a one-shot migration, the
+# backend, and the worker — exactly the four parts from the document, arranged
+# for deployment. Started with:
+#
+#   HOST_PORT=8088 POSTGRES_PASSWORD=... docker compose -p toybox-production up -d --build
+#
+# The project name (-p) namespaces the containers, network, and db volume so
+# staging and production — and the unrelated stacks already on this box — never
+# collide. Only the backend is published, and only to 127.0.0.1, so nothing is
+# exposed to the public internet; reach it over an SSH tunnel.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: toybox
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # The same readiness lesson as the CI service container: wait for Postgres
+      # to actually accept connections, not merely to have started.
+      test: ["CMD-SHELL", "pg_isready -U postgres -d toybox"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build: .
+    command: ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "back/src/db/migrate.ts"]
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/toybox
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  back:
+    build: .
+    # Run from /app (not --cwd back) so the backend finds ./web/dist.
+    command: ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "back/src/back.ts"]
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/toybox
+      PORT: "3000"
+    ports:
+      - "127.0.0.1:${HOST_PORT:-8088}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "--allow-ffi", "--allow-sys", "worker/src/worker.ts"]
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/toybox
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  db-data:

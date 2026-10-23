@@ -1,0 +1,40 @@
+name: deploy
+on:
+  workflow_call:                    # this workflow is called by others, never triggered directly
+    inputs:
+      environment: { required: true, type: string }
+
+permissions:
+  id-token: write          # would let a job request a short-lived OIDC token (see note below)
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4            # we build on the box, so it needs the source to rsync
+      - uses: actions/download-artifact@v4   # a different machine -- fetch the frontend the build job made
+        with: { name: bundle, path: dist }
+
+      # On a cloud target with an identity provider you would federate here and
+      # store no key at all:
+      #   - uses: aws-actions/configure-aws-credentials@v4
+      #     with: { role-to-assume: ${{ secrets.DEPLOY_ROLE_ARN }}, aws-region: ap-southeast-2 }
+      # The OCI box has no identity provider to federate with, so -- exactly the
+      # document's "bare box" case -- we authenticate with a dedicated SSH key.
+      - name: Write the SSH deploy key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.BOX_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      # deploy.sh ships the source + built frontend, builds and (re)starts the
+      # stack on the box, and finishes with a smoke check -- so a green job means
+      # the site actually answered, not merely that a script exited 0.
+      - name: Deploy and smoke-check
+        env:
+          BOX_HOST: ${{ secrets.BOX_HOST }}
+          SSH_KEY_FILE: /home/runner/.ssh/deploy_key
+          TOYBOX_DB_PASSWORD: ${{ secrets.TOYBOX_DB_PASSWORD }}
+        run: ./infra/deploy.sh dist --env "${{ inputs.environment }}"

@@ -1,0 +1,9 @@
+.git
+node_modules
+web/node_modules
+web/.vite
+*.log
+.env
+.DS_Store
+deno-card.png
+infra

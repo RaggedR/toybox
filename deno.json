@@ -1,0 +1,16 @@
+{
+  "workspace": ["./shared", "./back", "./worker", "./web"],
+  "nodeModulesDir": "auto",
+  "imports": {
+    "hono": "jsr:@hono/hono@^4.6",
+    "hono/deno": "jsr:@hono/hono@^4.6/deno",
+    "@db/postgres": "jsr:@db/postgres@^0.19",
+    "@resvg/resvg-js": "npm:@resvg/resvg-js@^2.6",
+    "zod": "npm:zod@^3.23"
+  },
+  "tasks": {
+    "db:migrate": "deno run --allow-net --allow-env --allow-read back/src/db/migrate.ts",
+    "db:seed": "deno run --allow-net --allow-env --allow-read back/src/db/seed.ts",
+    "test:templates": "deno test --allow-read infra/templates_contract_test.ts"
+  }
+}

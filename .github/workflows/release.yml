@@ -1,0 +1,33 @@
+name: Release
+on:
+  push: { branches: [main] }      # only the real, merged main -- never a PR
+
+concurrency:
+  group: release                  # all release runs share one lane
+  cancel-in-progress: false       # queue behind a running deploy; never interrupt it
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.7.0, cache: true }
+      - run: deno install && deno task --cwd web build   # produces web/dist/
+      - uses: actions/upload-artifact@v4                 # keep web/dist and hand it to later jobs
+        with: { name: bundle, path: web/dist }
+
+  # staging first (deploys automatically), production second (gated on a human).
+  # Both call the same reusable workflow -- one definition, two callers -- so a
+  # successful staging deploy is real evidence that production will work.
+  deploy-staging:
+    needs: build
+    uses: ./.github/workflows/deploy.yml
+    with: { environment: staging }
+    secrets: inherit
+
+  deploy-prod:
+    needs: deploy-staging
+    uses: ./.github/workflows/deploy.yml
+    with: { environment: production }
+    secrets: inherit

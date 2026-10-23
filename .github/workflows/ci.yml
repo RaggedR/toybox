@@ -1,0 +1,69 @@
+name: CI
+on:
+  push: { branches: [main] }   # still run on main (the record of what's live)
+  pull_request:                # and on every PR, before it can merge
+
+jobs:
+  changes:                                 # figure out which parts were touched
+    runs-on: ubuntu-latest
+    outputs:                               # publish the answer for other jobs to read
+      back: ${{ steps.f.outputs.back }}
+      web: ${{ steps.f.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            back: ['back/**', 'worker/**', 'shared/**']
+            web: ['web/**', 'shared/**']
+
+  back:
+    needs: changes
+    if: needs.changes.outputs.back == 'true'
+    runs-on: ubuntu-latest
+    # v2.0 can't read this repo's deno.lock (lockfile v5 needs Deno >= 2.3),
+    # so the "old" end of the matrix is 2.3.7, not 2.0.
+    strategy: { matrix: { deno: ["v2.3.7", "v2.7.0"] } }
+    services:
+      postgres:                            # a throwaway Postgres, up for this job only
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: toybox_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env: { DATABASE_URL: postgres://postgres:postgres@localhost:5432/toybox_test }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: "${{ matrix.deno }}", cache: true }
+      # One `deno test` run covers shared, worker, and back. The worker's render
+      # test loads a native addon, so it needs --allow-ffi/--allow-read/--allow-sys;
+      # the back test needs --allow-net/--allow-env for Postgres.
+      - run: deno install && deno test --allow-net --allow-env --allow-read --allow-ffi --allow-sys
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.7.0, cache: true }
+      - run: deno install && deno task --cwd web build
+
+  ci-ok:
+    needs: [changes, back, web]
+    if: always()                 # crucial: run even when back/web were skipped
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate
+        run: |
+          fail=0
+          [[ "${{ needs.back.result }}" == "failure" ]] && { echo "back failed"; fail=1; }
+          [[ "${{ needs.web.result }}" == "failure" ]] && { echo "web failed"; fail=1; }
+          # the trap: a part changed, yet its job skipped => the gate has a hole
+          [[ "${{ needs.changes.outputs.back }}" == "true" && "${{ needs.back.result }}" == "skipped" ]] && { echo "back changed but was skipped -- gate broken"; fail=1; }
+          [[ "${{ needs.changes.outputs.web }}" == "true" && "${{ needs.web.result }}" == "skipped" ]] && { echo "web changed but was skipped -- gate broken"; fail=1; }
+          exit $fail

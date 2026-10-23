@@ -1,0 +1,20 @@
+name: Nightly
+on:
+  schedule:
+    - cron: "0 17 * * *"     # 17:00 UTC daily (cron is always UTC) -- ~03:00 Melbourne
+  workflow_dispatch:         # also allow a manual run (handy for testing the job itself)
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4                 # our repo (default credentials)
+      - uses: actions/checkout@v4                 # a SECOND, private repo needs its own key
+        with:
+          repository: RaggedR/toybox-templates
+          path: _templates
+          ref: 1fa1124abec447987429a244faa259a67998cac4   # pinned to an exact commit
+          ssh-key: ${{ secrets.TEMPLATES_DEPLOY_KEY }}
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.7.0, cache: true }
+      - run: deno install && deno task test:templates
