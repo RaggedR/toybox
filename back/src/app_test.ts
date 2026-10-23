@@ -86,7 +86,7 @@ Deno.test({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ design: "sunset" }),
       });
-      assertEquals(res.status, 400);
+      assertEquals(res.status, 200); // DELIBERATELY WRONG: should be 400 (demo of the gate)
     });
 
     await t.step("close the pool", async () => {
