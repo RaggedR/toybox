@@ -8,6 +8,10 @@
 # staging and production — and the unrelated stacks already on this box — never
 # collide. Only the backend is published, and only to 127.0.0.1, so nothing is
 # exposed to the public internet; reach it over an SSH tunnel.
+#
+# Two images we build, plus Postgres. The backend and the migration share the
+# API image (back/Dockerfile); the worker has its own (worker/Dockerfile),
+# because it renders cards and needs fonts installed that the API never does.
 
 services:
   db:
@@ -27,7 +31,9 @@ services:
     restart: unless-stopped
 
   migrate:
-    build: .
+    build:
+      context: .
+      dockerfile: back/Dockerfile      # the API image (shared with back)
     command: ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "back/src/db/migrate.ts"]
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/toybox
@@ -37,7 +43,9 @@ services:
     restart: "no"
 
   back:
-    build: .
+    build:
+      context: .
+      dockerfile: back/Dockerfile      # the API image (shared with migrate)
     # Run from /app (not --cwd back) so the backend finds ./web/dist.
     command: ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "back/src/back.ts"]
     environment:
@@ -53,7 +61,9 @@ services:
     restart: unless-stopped
 
   worker:
-    build: .
+    build:
+      context: .
+      dockerfile: worker/Dockerfile    # its own image -- it has the fonts resvg needs
     command: ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "--allow-ffi", "--allow-sys", "worker/src/worker.ts"]
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/toybox

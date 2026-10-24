@@ -1,4 +1,7 @@
 {
+  "imports": {
+    "@resvg/resvg-js": "npm:@resvg/resvg-js@^2.6"
+  },
   "tasks": {
     "dev": "deno run --watch --allow-net --allow-env --allow-read --allow-ffi --allow-sys src/worker.ts",
     "start": "deno run --allow-net --allow-env --allow-read --allow-ffi --allow-sys src/worker.ts",
