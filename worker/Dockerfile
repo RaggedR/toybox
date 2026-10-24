@@ -25,5 +25,4 @@ RUN deno install
 
 COPY . .
 
-# A sensible default; docker-compose sets the same command explicitly.
-CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "--allow-ffi", "--allow-sys", "worker/src/worker.ts"]
+# No CMD: the command is set explicitly in docker-compose.yml, not baked in here.

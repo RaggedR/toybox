@@ -20,5 +20,5 @@ RUN deno install
 # in by the deploy; the backend serves it from /app/web/dist at runtime.
 COPY . .
 
-# A sensible default; docker-compose overrides it per service (back vs migrate).
-CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "back/src/back.ts"]
+# No CMD: this image is shared by two services (back and migrate), so the
+# command is chosen per container in docker-compose.yml, never baked in here.
