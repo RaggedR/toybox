@@ -810,7 +810,6 @@
     "dependencies": [
       "jsr:@db/postgres@0.19",
       "jsr:@hono/hono@^4.6.0",
-      "npm:@resvg/resvg-js@^2.6.0",
       "npm:zod@^3.23.0"
     ],
     "members": {
@@ -820,6 +819,11 @@
           "npm:react-dom@^18.3.0",
           "npm:react@^18.3.0",
           "npm:vite@^5.4.0"
+        ]
+      },
+      "worker": {
+        "dependencies": [
+          "npm:@resvg/resvg-js@^2.6.0"
         ]
       }
     }
