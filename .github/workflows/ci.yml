@@ -38,6 +38,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
         with: { deno-version: "${{ matrix.deno }}", cache: true }
+      # The worker's render test draws real text with resvg, so this runner needs
+      # the same fonts the worker image installs. A bare runner has none, resvg
+      # silently draws blank cards, and the render test (correctly) goes red --
+      # the "works on my machine" trap, since your laptop already has fonts.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-liberation fontconfig
       # One run covers the three code packages (shared, worker, back). We scope
       # it to those dirs on purpose: the contract test under infra/ reads a file
       # that only the nightly job checks out, so it must not be swept up here.
